@@ -1,8 +1,8 @@
 // 見た目。コースの箱（physics と同じデータ）からそのままメッシュを作る。
 import * as THREE from 'three'
-import { K } from './phys.js?v=5'
-import { buildNight, PAL } from './night.js?v=5'
-import { loadHero } from './hero.js?v=5'
+import { K } from './phys.js?v=6'
+import { buildNight, PAL } from './night.js?v=6'
+import { loadHero } from './hero.js?v=6'
 import { EffectComposer } from '../vendor/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from '../vendor/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from '../vendor/jsm/postprocessing/UnrealBloomPass.js'
@@ -14,14 +14,19 @@ let aniso = 4
 function tex(name, srgb) {
   const k = name + (srgb ? ':s' : '')
   if (TEX[k]) return TEX[k]
-  const t = loader.load(`assets/tex/${name}.webp`, () => { View.loaded++ }, undefined, () => { View.loaded++ })
+  // 画像は準備完了の後でまとめて読む（主人公の読み込みと帯域を取り合わない）
+  const t = new THREE.Texture()
+  View.queue.push([t, `assets/tex/${name}.webp?v=6`])
   View.toLoad++
   t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = aniso
   if (srgb) t.colorSpace = THREE.SRGBColorSpace
   return (TEX[k] = t)
 }
 
-export const View = { loaded: 0, toLoad: 0 }
+export const View = { loaded: 0, toLoad: 0, queue: [], flush() {
+  const il = new THREE.ImageLoader()
+  for (const [t, url] of View.queue.splice(0)) il.load(url, img => { t.image = img; t.needsUpdate = true; for (const c of t.userData.clones || []) { c.image = img; c.needsUpdate = true } View.loaded++ }, undefined, () => { View.loaded++ })
+} }
 
 function mats() {
   const M = {}

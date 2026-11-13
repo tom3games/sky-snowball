@@ -6,7 +6,7 @@ export const PAL = {
   basalt: 0x2c2d36, basaltHi: 0x4a4650, snow: 0xdfe5ff, snowShade: 0x7d86c0, lamp: 0xffb45a, flag: 0xd9b34a, fog: 0x3b4374,
 }
 import * as THREE from 'three'
-import { rayBox } from './phys.js?v=5'
+import { rayBox } from './phys.js?v=6'
 
 let seed = 5
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
@@ -59,7 +59,7 @@ export function buildNight(scene, W, M, opt) {
     })
     const sky = new THREE.Mesh(geo, mat); sky.renderOrder = -10; scene.add(sky)
     // 遠景の絵は、最初の画面の準備ができてから読む（読み込みを速く）
-    const loadPano = () => new THREE.TextureLoader().load('assets/pano.jpg?v=5', tx => {
+    const loadPano = () => new THREE.TextureLoader().load('assets/pano.jpg?v=6', tx => {
       tx.colorSpace = THREE.SRGBColorSpace; tx.wrapS = THREE.RepeatWrapping; tx.anisotropy = 4
       mat.uniforms.pano.value = tx; mat.uniforms.hasPano.value = 1
       // 霧の色 = 絵の地平線の少し下の色（全周の平均）
@@ -82,8 +82,8 @@ export function buildNight(scene, W, M, opt) {
     // 六角柱の1節（上が少し細い＝節の境目に影ができる）。上端を原点に
     const colGeo = new THREE.CylinderGeometry(0.42, 0.46, 1, 6, 1)
     colGeo.translate(0, -0.5, 0)
-    const rf = M.cliff.map.clone(); rf.repeat.set(1, 1.2); rf.needsUpdate = true
-    const rn = M.cliff.normalMap.clone(); rn.repeat.set(1, 1.2); rn.needsUpdate = true
+    const rf = M.cliff.map.clone(); rf.repeat.set(1, 1.2); (M.cliff.map.userData.clones ||= []).push(rf)
+    const rn = M.cliff.normalMap.clone(); rn.repeat.set(1, 1.2); (M.cliff.normalMap.userData.clones ||= []).push(rn)
     const colMat = new THREE.MeshStandardMaterial({ map: rf, normalMap: rn, normalScale: new THREE.Vector2(1.8, 1.8), color: 0xffffff, roughness: 0.42, metalness: 0.12, flatShading: true })
     // 雪の張り出し（崖の上の縁。面から 0.12m まで）
     const cornGeo = new THREE.SphereGeometry(1, 10, 6)

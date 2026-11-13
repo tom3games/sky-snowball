@@ -73,7 +73,8 @@ await sp.context().close()
 // 3. PC（Chromium）キーボード
 const pc = await open(cb, { viewport: { width: 1280, height: 720 } })
 await t('PC: Space で跳ぶ・Q で作る・E で持つ', async () => {
-  await pc.click('#startBtn'); await pc.waitForTimeout(500)
+  const pb = await pc.evaluate(() => { const r = document.querySelector('#startBtn').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  await pc.mouse.click(pb.x, pb.y); await pc.waitForFunction(() => snow.state() === 'play', null, { timeout: 120000 }); await pc.waitForTimeout(500)
   await pc.keyboard.press('q'); await pc.waitForTimeout(300)
   const n = await pc.evaluate(() => snow.W.balls.length)
   await pc.keyboard.press('e'); await pc.waitForTimeout(300)
@@ -95,7 +96,7 @@ await pc.context().close(); await cb.close()
 const wb = await webkit.launch()
 const wp = await open(wb, { isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
 await t('WebKit: 始めて雪玉を作れる・エラー 0', async () => {
-  await wp.tap('#startBtn'); await wp.waitForTimeout(600); await wp.tap('#bMake'); await wp.waitForTimeout(600)
+  for (const sel of ['#startBtn', '#bMake']) { const r = await wp.evaluate(s => { const e = document.querySelector(s).getBoundingClientRect(); return { x: e.left + e.width / 2, y: e.top + e.height / 2 } }, sel); await wp.touchscreen.tap(r.x, r.y); await wp.waitForTimeout(900) }
   const n = await wp.evaluate(() => snow.W.balls.length)
   expect(n === 1 && wp.errs.length === 0, JSON.stringify({ n, errs: wp.errs })); return true
 })
