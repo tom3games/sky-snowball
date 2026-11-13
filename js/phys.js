@@ -213,7 +213,14 @@ function stepMovers(W) {
   for (const b of W.boxes) {
     if (!b.gate) continue
     const open = b.gateOpen ? 1 : 0
-    b.gateT = (b.gateT ?? 0) + clamp(open - (b.gateT ?? 0), -DT * 0.8, DT * 0.8)
+    // 閉まる時、門の通り道に人か雪玉がいたら止める（上に押し出さない）
+    let blocked = false
+    if (open < (b.gateT ?? 0)) {
+      const inGate = (x, y, z, r) => x + r > b.min.x && x - r < b.max.x && z + r > b.min.z && z - r < b.max.z && y - r < b.y + b.h.y && y + r > b.y - b.h.y
+      const P = W.p.pos
+      blocked = inGate(P.x, P.y + 0.8, P.z, 0.5) || W.balls.some(o => inGate(o.pos.x, o.pos.y, o.pos.z, o.r))
+    }
+    if (!blocked) b.gateT = (b.gateT ?? 0) + clamp(open - (b.gateT ?? 0), -DT * 0.8, DT * 0.8)
     const y = b.y - b.gateT * (b.h.y * 2 + 0.05)
     if (Math.abs(b.c.y - y) > 1e-6) { b.c.y = y; boxAabb(b) }
   }

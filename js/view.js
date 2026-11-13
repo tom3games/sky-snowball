@@ -1,8 +1,8 @@
 // 見た目。コースの箱（physics と同じデータ）からそのままメッシュを作る。
 import * as THREE from 'three'
-import { K } from './phys.js?v=2'
-import { buildNight, PAL } from './night.js?v=2'
-import { loadHero } from './hero.js?v=2'
+import { K } from './phys.js?v=3'
+import { buildNight, PAL } from './night.js?v=3'
+import { loadHero } from './hero.js?v=3'
 import { EffectComposer } from '../vendor/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from '../vendor/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from '../vendor/jsm/postprocessing/UnrealBloomPass.js'
@@ -26,7 +26,7 @@ export const View = { loaded: 0, toLoad: 0 }
 function mats() {
   const M = {}
   const snowT = { map: tex('snow_02_diff', true), normalMap: tex('snow_02_nor_gl'), roughnessMap: tex('snow_02_rough') }
-  M.snow = new THREE.MeshStandardMaterial({ ...snowT, color: 0xdfe5ff, roughness: 0.92, normalScale: new THREE.Vector2(0.45, 0.45) }); M.snow.userData.rep = 7
+  M.snow = new THREE.MeshStandardMaterial({ ...snowT, color: 0xeef2ff, roughness: 0.92, normalScale: new THREE.Vector2(0.45, 0.45) }); M.snow.userData.rep = 7
   M.cliff = new THREE.MeshStandardMaterial({ map: tex('rock_face_diff', true), normalMap: tex('rock_face_nor_gl'), color: 0x55566a, roughness: 0.85, normalScale: new THREE.Vector2(1.4, 1.4) }); M.cliff.userData.rep = 4
   M.rock = new THREE.MeshStandardMaterial({ map: tex('aerial_rocks_02_diff', true), normalMap: tex('aerial_rocks_02_nor_gl'), roughnessMap: tex('aerial_rocks_02_rough'), color: 0x4c4c5c, roughness: 0.85, normalScale: new THREE.Vector2(1.3, 1.3) }); M.rock.userData.rep = 3
   M.ice = new THREE.MeshStandardMaterial({ map: tex('snow_02_diff', true), normalMap: tex('snow_02_nor_gl'), color: 0x8fb0e8, roughness: 0.08, metalness: 0.1, normalScale: new THREE.Vector2(0.25, 0.25) }); M.ice.userData.rep = 6
@@ -49,7 +49,9 @@ function scaleUV(geo, w, h, d, reps) {
 
 export function buildView(W, host) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
-  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  // スマホは軽くする（解像度 1.5 倍まで・影 1024・ブルームは 1/4）
+  const mobile = matchMedia('(pointer: coarse)').matches
+  const dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2)
   renderer.setPixelRatio(dpr)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -88,11 +90,11 @@ export function buildView(W, host) {
     snowG.attributes.position.needsUpdate = true
   }
 
-  const hemi = new THREE.HemisphereLight(0x7f8ad8, 0x2a2638, 1.6); scene.add(hemi)
+  const hemi = new THREE.HemisphereLight(0x9aa6d8, 0x2a2a38, 1.5); scene.add(hemi)
   // 月とオーロラの光（青白い）
-  const sun = new THREE.DirectionalLight(0xbfc8ff, 2.7)
+  const sun = new THREE.DirectionalLight(0xa9b6ff, 2.6)
   sun.position.set(-30, 50, -20); sun.castShadow = true
-  sun.shadow.mapSize.set(2048, 2048)
+  sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048)
   const sc = sun.shadow.camera; sc.left = -28; sc.right = 28; sc.top = 28; sc.bottom = -28; sc.near = 1; sc.far = 160
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03
   scene.add(sun); scene.add(sun.target)
@@ -172,10 +174,36 @@ export function buildView(W, host) {
   // 転がった跡（雪がはがれて少し暗い帯）
   const NT = 2400
   const trackGeo = new THREE.PlaneGeometry(1, 1); trackGeo.rotateX(-Math.PI / 2)
-  const trackMat = new THREE.MeshStandardMaterial({ color: 0x6a6f9a, roughness: 1, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
+  const grooveTex = (() => {
+    // 横断面: 両端に押し出された雪の明るい盛り上がり、真ん中は押し固められて暗い
+    const c = document.createElement('canvas'); c.width = 64; c.height = 4
+    const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 64, 0)
+    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.1, 'rgba(250,252,255,0.85)'); gr.addColorStop(0.22, 'rgba(150,160,205,0.75)')
+    gr.addColorStop(0.5, 'rgba(120,128,180,0.8)'); gr.addColorStop(0.78, 'rgba(150,160,205,0.75)'); gr.addColorStop(0.9, 'rgba(250,252,255,0.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)')
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 4)
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t
+  })()
+  const trackMat = new THREE.MeshStandardMaterial({ map: grooveTex, color: 0xffffff, roughness: 0.9, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
   const tracks = new THREE.InstancedMesh(trackGeo, trackMat, NT); tracks.count = 0; tracks.receiveShadow = true; tracks.frustumCulled = false
   scene.add(tracks)
   let trackI = 0
+  // 足跡
+  const NP = 700
+  const printTex = (() => { const c = document.createElement('canvas'); c.width = 32; c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(16, 34, 2, 16, 34, 16); gr.addColorStop(0, 'rgba(110,118,170,0.85)'); gr.addColorStop(1, 'rgba(110,118,170,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(16, 30, 11, 24, 0, 0, Math.PI * 2); g.fill(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t })()
+  const prints = new THREE.InstancedMesh(trackGeo, new THREE.MeshStandardMaterial({ map: printTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, roughness: 1 }), NP)
+  prints.count = 0; prints.frustumCulled = false; scene.add(prints)
+  let printI = 0, printD = 0, printSide = 1
+  function footprints(p, dt) {
+    if (!p.ground || p.gBall || p.gmat !== 'snow' || p.mantle) return
+    printD += Math.hypot(p.vel.x, p.vel.z) * dt
+    if (printD < 0.62) return
+    printD = 0; printSide = -printSide
+    const rx = Math.cos(p.yaw) * 0.13 * printSide, rz = -Math.sin(p.yaw) * 0.13 * printSide
+    _p.set(p.pos.x + rx, p.pos.y + 0.012, p.pos.z + rz)
+    _q.setFromUnitVectors(_up, new THREE.Vector3(p.gn.x, p.gn.y, p.gn.z)); _q.multiply(new THREE.Quaternion().setFromAxisAngle(_up, p.yaw))
+    _m4.compose(_p, _q, _s.set(0.16, 1, 0.3))
+    prints.setMatrixAt(printI, _m4); printI = (printI + 1) % NP; prints.count = Math.max(prints.count, printI === 0 ? NP : printI); prints.instanceMatrix.needsUpdate = true
+  }
   const lastTrack = new Map()
   const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0)
 
@@ -224,7 +252,7 @@ export function buildView(W, host) {
 
   function resize() {
     const w = host.clientWidth || innerWidth, h = host.clientHeight || innerHeight
-    renderer.setSize(w, h, false); composer.setSize(w, h); bloom.resolution.set(w / 2, h / 2); camera.aspect = w / h
+    renderer.setSize(w, h, false); composer.setSize(w, h); bloom.resolution.set(w / (mobile ? 4 : 2), h / (mobile ? 4 : 2)); camera.aspect = w / h
     camera.fov = w < h ? 68 : 55
     camState.dist = w < h ? 8.8 : 7.6
     camera.updateProjectionMatrix()
@@ -251,7 +279,7 @@ export function buildView(W, host) {
           _q.setFromUnitVectors(_up, new THREE.Vector3(b.gn.x, b.gn.y, b.gn.z))
           const yaw = Math.atan2(dx, dz)
           _q.multiply(new THREE.Quaternion().setFromAxisAngle(_up, yaw))
-          _s.set(b.r * 1.05, 1, lt ? Math.min(0.6, Math.hypot(dx, dz) + 0.08) : 0.3)
+          _s.set(b.r * 1.5, 1, lt ? Math.min(0.6, Math.hypot(dx, dz) + 0.08) : 0.3)
           _m4.compose(_p, _q, _s)
           tracks.setMatrixAt(trackI, _m4); trackI = (trackI + 1) % NT; tracks.count = Math.max(tracks.count, trackI === 0 ? NT : trackI)
           tracks.instanceMatrix.needsUpdate = true
@@ -356,7 +384,7 @@ export function buildView(W, host) {
   return {
     renderer, scene, camera, camState, sun, ring, night, hero: H, shatter,
     render(W, dt, extra) {
-      syncBalls(W, dt); poseHero(W, dt, extra); updateFX(W, dt)
+      syncBalls(W, dt); poseHero(W, dt, extra); updateFX(W, dt); footprints(W.p, Math.min(dt, 0.1))
       // 影の箱を人について動かす
       const p = W.p.pos
       sun.position.set(p.x - 26, p.y + 26, p.z - 34); sun.target.position.set(p.x, p.y, p.z)

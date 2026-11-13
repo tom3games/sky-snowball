@@ -1,6 +1,6 @@
 # CREDITS
 
-- assets/models/hero.glb: KayKit Character Pack Adventures 1.0「Rogue_Hooded」/ Kay Lousberg / CC0 / https://kaylousberg.com （外套の色を塗り替え）
+- assets/models/climber.glb: Quaternius「Ultimate Modular Men」Adventurer / CC0 / https://quaternius.com （使うアニメだけ残し、服の色を塗り替え、ニット帽とマフラーを足した）
 - assets/tex/snow_02・aerial_rocks_02・rock_boulder_dry・rock_face（色・法線・ラフネス）: Poly Haven / CC0 / https://polyhaven.com/textures
 - snd/step1〜7.mp3, snd/roll.mp3: 4 dry snow steps / 9 wet snow steps / qubodup (Iwan Gabovitch) / CC0 / https://opengameart.org/content/4-dry-snow-steps https://opengameart.org/content/9-wet-snow-steps （roll は wet をつないで低くした物）
 - snd/wind.mp3: Wind / IgnasD / CC0

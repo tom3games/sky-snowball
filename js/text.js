@@ -34,7 +34,7 @@ const D = {
     h_ride: '人は新雪に埋まる。雪玉に乗って歩くと転がせる',
     h_wall: '氷の壁は叩いても割れない。上の台で育てた雪玉を、坂から走らせてぶつける',
     h_gate: '踏み板に重い雪玉を載せている間だけ門が開く',
-    credit: '人物: KayKit / 効果音: qubodup・rubberduck・Kenney・PWL・IgnasD・artisticdude / 質感: Poly Haven（すべて CC0）',
+    credit: '人物: Quaternius / 効果音: qubodup・rubberduck・Kenney・PWL・IgnasD・artisticdude / 質感: Poly Haven（すべて CC0）',
   },
   en: {
     loading: 'Trudging up',
@@ -70,7 +70,7 @@ const D = {
     h_ride: 'You sink in powder. Stand on a snowball and walk to roll it',
     h_wall: 'You cannot break the ice. Grow a snowball up top and send it down the slope',
     h_gate: 'The gate opens only while a heavy snowball sits on the plate',
-    credit: 'Character: KayKit / Sound: qubodup, rubberduck, Kenney, PWL, IgnasD, artisticdude / Textures: Poly Haven (all CC0)',
+    credit: 'Character: Quaternius / Sound: qubodup, rubberduck, Kenney, PWL, IgnasD, artisticdude / Textures: Poly Haven (all CC0)',
   },
 }
 let L = 'ja'

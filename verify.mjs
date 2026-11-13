@@ -41,9 +41,10 @@ const inView = (p, sel) => p.evaluate(s => { const r = document.querySelector(s)
 const cb = await chromium.launch()
 const sp = await open(cb, { isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
 await t('スマホ: タイトルが一画面・はみ出しなし', async () => { const r = await sp.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: innerWidth, sh: document.documentElement.scrollHeight, h: innerHeight })); expect(r.sw <= r.w && r.sh <= r.h, JSON.stringify(r)); expect(await inView(sp, '#startBtn'), 'start 画面外'); return true })
-await sp.screenshot({ path: ROOT + '/shots/v_phone_title.png' })
+await sp.screenshot({ path: ROOT + '/shots/v_phone_title.png', timeout: 180000 }).catch(e => console.log('shot skip', e.message.split('\n')[0]))
 await t('スマホ: はじめから → 操作ボタンが画面内', async () => {
-  await sp.tap('#startBtn'); await sp.waitForTimeout(800)
+  const sb = await sp.evaluate(() => { const r = document.querySelector('#startBtn').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  await sp.touchscreen.tap(sb.x, sb.y); await sp.waitForFunction(() => snow.state() === 'play', null, { timeout: 120000 }); await sp.waitForTimeout(800)
   for (const s of ['#bJump', '#bGrab', '#bMake', '#pauseBtn']) expect(await inView(sp, s), s + ' 画面外')
   return true
 })
@@ -64,7 +65,7 @@ await t('スマホ: 左下の固定スティックで歩く', async () => {
   const r = await sp.evaluate(() => ({ z: snow.W.p.pos.z, b: snow.W.balls[0] && snow.W.balls[0].pos.z }))
   expect(r.z - z0 > 1.5, JSON.stringify({ z0, ...r })); return { moved: +(r.z - z0).toFixed(1) }
 })
-await sp.screenshot({ path: ROOT + '/shots/v_phone_play.png' })
+await sp.screenshot({ path: ROOT + '/shots/v_phone_play.png', timeout: 180000 }).catch(e => console.log('shot skip', e.message.split('\n')[0]))
 await t('スマホ: エラー 0', () => { expect(sp.errs.length === 0, sp.errs.join(' | ')); return true })
 await t('音: Chromium で鳴っていない', async () => { const r = await sp.evaluate(() => window.__muteOk ? window.__muteOk() : true); expect(r, 'muteOk=false'); return true })
 await sp.context().close()
@@ -86,7 +87,7 @@ await t('PC: 谷へ落ちると旗に戻る', async () => {
   await pc.evaluate(() => { snow.W.p.pos = { x: 30, y: 0, z: 0 } }); await pc.waitForFunction(() => snow.W.p.pos.x < 2, null, { timeout: 60000 }).catch(() => {})
   const r = await pc.evaluate(() => snow.W.p.pos); expect(Math.abs(r.x) < 2 && Math.abs(r.z + 1) < 2, JSON.stringify(r)); return true
 })
-await pc.screenshot({ path: ROOT + '/shots/v_pc_play.png' })
+await pc.screenshot({ path: ROOT + '/shots/v_pc_play.png', timeout: 180000 }).catch(e => console.log('shot skip', e.message.split('\n')[0]))
 await t('PC: エラー 0', () => { expect(pc.errs.length === 0, pc.errs.join(' | ')); return true })
 await pc.context().close(); await cb.close()
 

@@ -83,5 +83,22 @@ for (const c of cases) {
   if (!good) ng++
   console.log(`${good ? 'OK' : 'NG'} 重りの門: 半径0.8 ${res[0] ? '開いた' : '開かない'} / 1.02 ${res[1] ? '開いた' : '開かない'}`)
 }
+// 重りの門: 開いた門の下に立っている間に玉をどけても、人は門の上に押し出されない
+{
+  const W = createWorld(COURSE)
+  const b = makeBall(W, 3.5, H.y10 + 0.2 + 1.02, 259, 1.02)
+  W.p.pos = { x: -1.5, y: H.y10, z: 264 }
+  for (let i = 0; i < 240; i++) step(W, {})
+  W.p.pos = { x: -1.5, y: H.y10, z: 266.6 }
+  b.pos.x = -6 // 踏み板からどける
+  for (let i = 0; i < 300; i++) step(W, {})
+  const y = W.p.pos.y
+  W.p.pos = { x: -1.5, y: H.y10, z: 269 }
+  for (let i = 0; i < 400; i++) step(W, {})
+  const g = W.boxes.find(o => o.gate)
+  const good = y < H.y10 + 0.5 && g.c.y > g.y - 0.2
+  if (!good) ng++
+  console.log(`${good ? 'OK' : 'NG'} 重りの門: 下に人がいる間は閉まらない（人の高さ ${(y - H.y10).toFixed(2)}m）・どいたら閉まる`)
+}
 console.log(ng ? `NG ${ng}件` : 'NG 0件')
 process.exit(ng ? 1 : 0)

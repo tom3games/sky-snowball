@@ -6,6 +6,7 @@ export const PAL = {
   basalt: 0x2c2d36, basaltHi: 0x4a4650, snow: 0xdfe5ff, snowShade: 0x7d86c0, lamp: 0xffb45a, flag: 0xd9b34a, fog: 0x3b4374,
 }
 import * as THREE from 'three'
+import { rayBox } from './phys.js?v=3'
 
 let seed = 5
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
@@ -75,43 +76,61 @@ export function buildNight(scene, W, M, opt) {
 
   // ---- 玄武岩の柱（崖の面に六角の柱を並べる。面から 0.12m までしか出ない） ----
   {
-    const colGeo = new THREE.CylinderGeometry(0.46, 0.46, 1, 6, 1)
-    colGeo.translate(0, -0.5, 0) // 上端を原点に
-    const rf = M.cliff.map.clone(); rf.repeat.set(1, 5); rf.needsUpdate = true
-    const rn = M.cliff.normalMap.clone(); rn.repeat.set(1, 5); rn.needsUpdate = true
-    const colMat = new THREE.MeshStandardMaterial({ map: rf, normalMap: rn, normalScale: new THREE.Vector2(1.6, 1.6), color: 0xffffff, roughness: 0.45, metalness: 0.12, flatShading: true })
+    // 六角柱の1節（上が少し細い＝節の境目に影ができる）。上端を原点に
+    const colGeo = new THREE.CylinderGeometry(0.42, 0.46, 1, 6, 1)
+    colGeo.translate(0, -0.5, 0)
+    const rf = M.cliff.map.clone(); rf.repeat.set(1, 1.2); rf.needsUpdate = true
+    const rn = M.cliff.normalMap.clone(); rn.repeat.set(1, 1.2); rn.needsUpdate = true
+    const colMat = new THREE.MeshStandardMaterial({ map: rf, normalMap: rn, normalScale: new THREE.Vector2(1.8, 1.8), color: 0xffffff, roughness: 0.42, metalness: 0.12, flatShading: true })
     // 雪の張り出し（崖の上の縁。面から 0.12m まで）
     const cornGeo = new THREE.SphereGeometry(1, 10, 6)
     const cornMat = new THREE.MeshStandardMaterial({ map: M.snow.map, normalMap: M.snow.normalMap, normalScale: new THREE.Vector2(0.6, 0.6), color: PAL.snow, roughness: 0.95 })
-    const corn = []
+    const corn = [], drifts = [], chains = []
     const capGeo = new THREE.CylinderGeometry(0.5, 0.46, 0.16, 6, 1)
     const capMat = new THREE.MeshStandardMaterial({ map: M.snow.map, color: PAL.snow, roughness: 0.95 })
-    const iceGeo = new THREE.ConeGeometry(0.06, 1, 5); iceGeo.rotateX(Math.PI); iceGeo.translate(0, -0.5, 0)
-    // ConeGeometry は先が +y。rotateX(π) で先が下
-    const iceMat = new THREE.MeshStandardMaterial({ color: 0xbfd6ff, roughness: 0.1, metalness: 0.0, transparent: true, opacity: 0.85 })
+    const iceGeo = new THREE.ConeGeometry(0.035, 1, 5); iceGeo.rotateX(Math.PI); iceGeo.translate(0, -0.5, 0)
+    const iceMat = new THREE.MeshStandardMaterial({ color: 0x9fb8e8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.7 })
     const cols = [], caps = [], ices = []
     const inside = (x, y, z, self) => W.boxes.some(b => b !== self && !b.prop && !b.pitch && !b.roll && x > b.min.x && x < b.max.x && y > b.min.y && y < b.max.y && z > b.min.z && z < b.max.z)
     for (const b of W.boxes) {
       if (b.prop || b.pitch || b.roll || b.gate || b.breakable || b.plate || b.mat === 'ice') continue
       const top = b.max.y
-      const bot = Math.max(b.min.y, top - 16)
+      const bot = Math.max(b.min.y, top - 11)
       if (top - bot < 0.6) continue
       const faces = [[1, 0, b.max.x, b.min.z, b.max.z], [-1, 0, b.min.x, b.min.z, b.max.z], [0, 1, b.max.z, b.min.x, b.max.x], [0, -1, b.min.z, b.min.x, b.max.x]]
       for (const [nx, nz, f, a0, a1] of faces) {
-        const L = a1 - a0, n = Math.max(1, Math.round(L / 0.8)), step = L / n
-        for (let i = 0; i < n; i++) {
-          const a = a0 + step * (i + 0.5)
-          const x = nx ? f + nx * 0.02 : a, z = nz ? f + nz * 0.02 : a
-          // 外に別の箱がある所（埋まる所）には置かない
+        // 太さの違う柱を、すき間なく並べる
+        let a = a0, idx = 0
+        while (a < a1 - 0.2) {
+          const w = 0.62 + rnd() * 0.38, wid = 0.46 * w * 1.8
+          const ac = Math.min(a1 - 0.1, a + wid / 2); a += wid; idx++
+          const x = nx ? f + nx * 0.02 : ac, z = nz ? f + nz * 0.02 : ac
           if (inside(x + nx * 0.6, top - 0.6, z + nz * 0.6, b)) continue
-          const cx = x - nx * 0.34 + (rnd() - 0.5) * 0.04, cz = z - nz * 0.34
-          const dt = rnd() < 0.2 ? 0.3 + rnd() * 0.5 : 0.04 + rnd() * 0.18 // 柱の頭は少し下がって段々に
-          const len = top - dt - bot
-          cols.push([cx, top - dt, cz, len, rnd() * 6, 0.8 + rnd() * 0.2])
-          if (b.mat === 'snow' && i % 1 === 0) corn.push([x - nx * 0.18, top - 0.04, z - nz * 0.18, nx, nz, step])
-          if (b.mat !== 'ice') caps.push([cx, top - dt + 0.05, cz, cols[cols.length - 1][5], cols[cols.length - 1][4]])
+          const inset = 0.46 * w - 0.12
+          const cx = x - nx * (inset + 0.02), cz = z - nz * (inset + 0.02)
+          const dt = rnd() < 0.25 ? 0.3 + rnd() * 0.6 : 0.04 + rnd() * 0.16 // 柱の頭は段々に
+          const rot = rnd() * 6
+          // 節に分ける（横の割れ目）
+          let y = top - dt
+          while (y > bot + 0.05) {
+            const seg = Math.min(y - bot, top - y < 4 ? 0.7 + rnd() * 1.8 : 2.5 + rnd() * 2)
+            const back = rnd() * 0.05
+            cols.push([cx - nx * back, y, cz - nz * back, seg - 0.03, rot + (rnd() - 0.5) * 0.12, w])
+            y -= seg
+          }
+          if (b.mat !== 'ice' && dt < 0.25) caps.push([cx, top - dt + 0.05, cz, w, rot])
+          if (b.mat === 'snow' && rnd() < 0.8) corn.push([x - nx * 0.18, top - 0.04, z - nz * 0.18, nx, nz, wid * (0.8 + rnd() * 1.1)])
           // つらら（崖の上の縁、手前に向いた面に多く）
-          if (top - bot > 2 && rnd() < (nz < 0 ? 0.55 : 0.25)) ices.push([x + nx * 0.06, top - dt - 0.02, z + nz * 0.06, 0.25 + rnd() * rnd() * 1.1])
+          if (top - bot > 2 && rnd() < (nz < 0 ? 0.4 : 0.15)) for (let c = 0, nc = 1 + Math.floor(rnd() * 3); c < nc; c++) ices.push([x + nx * 0.06 + (nz ? (rnd() - 0.5) * wid : 0), top - dt - 0.02, z + nz * 0.06 + (nx ? (rnd() - 0.5) * wid : 0), 0.12 + rnd() * rnd() * 1.0])
+          // 鎖（高い崖の手前の面に、ときどき）
+          if (top - bot > 2.6 && nz < 0 && rnd() < 0.05) chains.push([x + nx * 0.1, top - 0.1, z + nz * 0.1, 1.6 + rnd() * 1.8, nx, nz])
+          // 崖の根もとの吹きだまり
+          if (rnd() < 0.45) {
+            const o = { x: x + nx * 0.6, y: top - 0.2, z: z + nz * 0.6 }
+            let best = null
+            for (const bb of W.boxes) { if (bb.prop || bb === b) continue; const h = rayBox(o, { x: 0, y: -1, z: 0 }, bb, 30); if (h && h.n.y > 0.9 && (!best || h.t < best.t)) best = { t: h.t, mat: bb.mat } }
+            if (best && best.mat === 'snow' && best.t > 0.6) drifts.push([x + nx * 0.25, o.y - best.t, z + nz * 0.25, nx, nz, wid])
+          }
         }
       }
     }
@@ -125,15 +144,51 @@ export function buildNight(scene, W, M, opt) {
     kI.receiveShadow = true; scene.add(kI)
     const cnI = new THREE.InstancedMesh(cornGeo, cornMat, corn.length)
     corn.forEach(([x, y, z, nx, nz, st], i) => {
-      const along = st * (0.6 + rnd() * 0.25), up = 0.16 + rnd() * 0.12, out = 0.28
+      const along = st * (0.55 + rnd() * 0.45), up = 0.08 + rnd() * rnd() * 0.22, out = 0.2 + rnd() * 0.08
       const sx = nx ? out : along, sz = nz ? out : along
       m4.compose(p.set(x, y - up * 0.3, z), q.identity(), s.set(sx, up, sz)); cnI.setMatrixAt(i, m4)
     })
     cnI.receiveShadow = true; cnI.castShadow = false; scene.add(cnI)
+    // 吹きだまり（崖の根もと。高さ 0.25m まで、面から 0.6m まで）
+    const dI = new THREE.InstancedMesh(cornGeo, cornMat, Math.max(1, drifts.length))
+    drifts.forEach(([x, y, z, nx, nz, st], i) => {
+      const along = st * (0.9 + rnd() * 1.6), up = 0.05 + rnd() * rnd() * 0.2, out = 0.4 + rnd() * 0.4
+      m4.compose(p.set(x, y - 0.02, z), q.identity(), s.set(nx ? out : along, up, nz ? out : along)); dI.setMatrixAt(i, m4)
+    })
+    dI.count = drifts.length; dI.receiveShadow = true; scene.add(dI)
+    // 鎖（輪を交互の向きで垂らす）
+    const linkGeo = new THREE.TorusGeometry(0.055, 0.016, 5, 10)
+    const linkMat = new THREE.MeshStandardMaterial({ color: 0x5a4436, roughness: 0.55, metalness: 0.7 })
+    const links = []
+    for (const [x, y, z, len, nx, nz] of chains) { const n = Math.round(len / 0.09); for (let k = 0; k < n; k++) links.push([x, y - k * 0.09, z, k % 2]) }
+    const lI = new THREE.InstancedMesh(linkGeo, linkMat, Math.max(1, links.length))
+    links.forEach(([x, y, z, odd], i) => { q.setFromEuler(new THREE.Euler(0, odd ? Math.PI / 2 : 0, Math.PI / 2)); m4.compose(p.set(x, y, z), q, s.set(1, 1, 1)); lI.setMatrixAt(i, m4) })
+    lI.count = links.length; scene.add(lI)
+    // 月光で雪がきらめく（雪の上面に細かい点。見る角度と時間でまたたく）
+    {
+      const pts = []
+      for (const b of W.boxes) {
+        if (b.mat !== 'snow' || b.prop || b.roll) continue
+        const area = (b.h.x * 2) * (b.h.z * 2), n = Math.min(400, area * 1.6)
+        for (let k = 0; k < n; k++) {
+          const lx = (rnd() - 0.5) * 2 * b.h.x, lz = (rnd() - 0.5) * 2 * b.h.z
+          const px = b.c.x + b.ax.x * lx + b.ay.x * b.h.y + b.az.x * lz, py = b.c.y + b.ax.y * lx + b.ay.y * b.h.y + b.az.y * lz, pz = b.c.z + b.ax.z * lx + b.ay.z * b.h.y + b.az.z * lz
+          pts.push(px, py + 0.02, pz)
+        }
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+      const seed = new Float32Array(pts.length / 3); for (let k = 0; k < seed.length; k++) seed[k] = rnd() * 100
+      g.setAttribute('seed', new THREE.BufferAttribute(seed, 1))
+      const sm = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { t: { value: 0 } },
+        vertexShader: 'attribute float seed; uniform float t; varying float vA; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); float d = -mv.z; vA = pow(max(0.0, sin(seed * 7.0 + t * 1.3 + position.x * 0.9 - position.z * 0.7)), 18.0) * smoothstep(40.0, 6.0, d); gl_PointSize = 2.6 * (1.0 + vA); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'varying float vA; void main(){ vec2 c = gl_PointCoord - 0.5; float r = length(c); if (r > 0.5) discard; gl_FragColor = vec4(vec3(0.85, 0.9, 1.0) * vA * (1.0 - r * 2.0) * 1.6, 1.0); }' })
+      const sp = new THREE.Points(g, sm); sp.frustumCulled = false; scene.add(sp)
+      out.tick.push(t => { sm.uniforms.t.value = t })
+    }
     const iI = new THREE.InstancedMesh(iceGeo, iceMat, ices.length)
     ices.forEach(([x, y, z, l], i) => { m4.compose(p.set(x, y, z), q.identity(), s.set(1 + l * 0.6, l, 1 + l * 0.6)); iI.setMatrixAt(i, m4) })
     scene.add(iI)
-    out.counts = { cols: cols.length, caps: caps.length, ices: ices.length, corn: corn.length }
+    out.counts = { cols: cols.length, caps: caps.length, ices: ices.length, corn: corn.length, drifts: drifts.length, links: chains.length }
   }
 
   // ---- ランタン（琥珀の光で、次に登る所を示す） ----
@@ -161,14 +216,14 @@ export function buildNight(scene, W, M, opt) {
       out.lamps.push({ x: L.x + 0.34, y: L.y + 1.62, z: L.z, sp, ph: rnd() * 6 })
     }
     // 近いランタンだけ本物の光（数を抑える）
-    for (let i = 0; i < 5; i++) { const l = new THREE.PointLight(PAL.lamp, 0, 13, 1.6); scene.add(l); out.lights.push(l) }
+    for (let i = 0; i < 6; i++) { const l = new THREE.PointLight(0xffa850, 0, 16, 1.5); scene.add(l); out.lights.push(l) }
     let k = 0
     out.tick.push((t, cam, player) => {
       for (const L of out.lamps) L.sp.material && (L.sp.scale.setScalar(2.1 + Math.sin(t * 7 + L.ph) * 0.08 + Math.sin(t * 13 + L.ph) * 0.05))
       if ((k++ % 10) !== 0) return
       const P = player
       const near = out.lamps.map(L => ({ L, d: (L.x - P.x) ** 2 + (L.y - P.y) ** 2 * 2 + (L.z - P.z) ** 2 })).sort((a, b) => a.d - b.d)
-      out.lights.forEach((l, i) => { const n = near[i]; if (!n) { l.intensity = 0; return } l.position.set(n.L.x, n.L.y, n.L.z); l.intensity = 12 })
+      out.lights.forEach((l, i) => { const n = near[i]; if (!n) { l.intensity = 0; return } l.position.set(n.L.x, n.L.y, n.L.z); l.intensity = 30 })
     })
   }
 
