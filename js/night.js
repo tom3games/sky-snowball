@@ -6,7 +6,7 @@ export const PAL = {
   basalt: 0x2c2d36, basaltHi: 0x4a4650, snow: 0xdfe5ff, snowShade: 0x7d86c0, lamp: 0xffb45a, flag: 0xd9b34a, fog: 0x3b4374,
 }
 import * as THREE from 'three'
-import { rayBox } from './phys.js?v=3'
+import { rayBox } from './phys.js?v=4'
 
 let seed = 5
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
@@ -58,7 +58,8 @@ export function buildNight(scene, W, M, opt) {
         }`,
     })
     const sky = new THREE.Mesh(geo, mat); sky.renderOrder = -10; scene.add(sky)
-    new THREE.TextureLoader().load('assets/pano.jpg', tx => {
+    // 遠景の絵は、最初の画面の準備ができてから読む（読み込みを速く）
+    const loadPano = () => new THREE.TextureLoader().load('assets/pano.jpg?v=4', tx => {
       tx.colorSpace = THREE.SRGBColorSpace; tx.wrapS = THREE.RepeatWrapping; tx.anisotropy = 4
       mat.uniforms.pano.value = tx; mat.uniforms.hasPano.value = 1
       // 霧の色 = 絵の地平線の少し下の色（全周の平均）
@@ -71,6 +72,8 @@ export function buildNight(scene, W, M, opt) {
         opt.onFog && opt.onFog(new THREE.Color().setRGB(r / n / 255, gg / n / 255, b / n / 255, THREE.SRGBColorSpace))
       } catch (e) {}
     })
+    const wait = () => { if (window.__snowReady) loadPano(); else setTimeout(wait, 200) }
+    wait()
     out.tick.push((t, cam) => { mat.uniforms.t.value = t; sky.position.copy(cam.position) })
   }
 

@@ -1,9 +1,9 @@
 // SKY SNOWBALL 本体: 入力・カメラ・固定 60Hz の進行・画面の文字
 import * as THREE from 'three'
-import { createWorld, step, DT, K, respawn, placeTarget, rayBox, pushPow, zoneAt, zoneState, snapshot, makeBall, baseOf } from './phys.js?v=3'
-import { COURSE } from './course.js?v=3'
-import { buildView, View } from './view.js?v=3'
-import { T, setLang, lang } from './text.js?v=3'
+import { createWorld, step, DT, K, respawn, placeTarget, rayBox, pushPow, zoneAt, zoneState, snapshot, makeBall, baseOf } from './phys.js?v=4'
+import { COURSE } from './course.js?v=4'
+import { buildView, View } from './view.js?v=4'
+import { T, setLang, lang } from './text.js?v=4'
 
 const $ = s => document.querySelector(s)
 const store = { get(k, d) { try { const v = localStorage.getItem('sky-snowball:' + k); return v == null ? d : JSON.parse(v) } catch (e) { return d } }, set(k, v) { try { localStorage.setItem('sky-snowball:' + k, JSON.stringify(v)) } catch (e) {} } }
