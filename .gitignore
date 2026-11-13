@@ -1,0 +1,9 @@
+node_modules
+.DS_Store
+shots/
+art/
+tools/_dbg.mjs
+support.js
+tools/*.add
+tools/compare.mjs
+tools/palette.mjs

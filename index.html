@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>SKY SNOWBALL｜雪玉を踏み台に山頂へ登る3Dアクション</title>
+<meta name="description" content="雪の上で雪玉を転がして大きくし、段の下まで押して踏み台にして登る3Dアクション。大きすぎると押せず、坂では勝手に転がり落ちる。落ちたら下の段から登り直し。ブラウザで遊べる。">
+<link rel="canonical" href="https://tom3games.github.io/sky-snowball/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SKY SNOWBALL">
+<meta property="og:description" content="転がした雪玉が、次の足場になる。育てすぎた雪玉は坂を転がり落ちていく。">
+<meta property="og:image" content="https://tom3games.github.io/sky-snowball/og.png?v=1">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://tom3games.github.io/sky-snowball/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#2b3a4c">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=1">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+<script>window.addEventListener('error',function(){setTimeout(function(){if(!window.__jsUp){var e=document.getElementById('bootFail');if(e)e.hidden=false}},300)});setTimeout(function(){if(!window.__jsUp){var e=document.getElementById('bootFail');if(e)e.hidden=false}},15000)</script>
+</head>
+<body>
+<div id="view"></div>
+<div id="flash"></div>
+<div id="touchzone"></div>
+
+<section id="loading" class="screen">
+  <div class="ld">
+    <svg class="ld-ball" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15" fill="#eef3f8"/><path d="M9 14 q6 -4 11 0 M17 27 q5 3 11 -1 M24 11 q3 2 5 6" stroke="#b9c6d4" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+    <p class="ld-txt" data-t="loading">雪を踏んで向かう</p>
+    <div class="ld-bar"><i id="ldFill"></i></div>
+  </div>
+</section>
+<p id="bootFail" hidden>読み込みに失敗しました。再読み込みしてください。</p>
+
+<section id="title" class="screen" hidden>
+  <div class="t-left">
+    <p class="t-kicker" data-t="kicker"></p>
+    <h1 class="logo"><span class="en">SKY SNOWBALL</span><span class="sub" data-t="logo_sub"></span></h1>
+    <nav class="t-menu">
+      <button id="contBtn" class="go main" hidden><b data-t="cont">つづきから</b><small id="contSub"></small></button>
+      <button id="startBtn" class="go"><b data-t="start">はじめから</b><small id="bestLine"></small></button>
+    </nav>
+  </div>
+  <div class="t-foot">
+    <button id="howBtn" class="link" data-t="how">遊び方</button>
+    <button id="langBtn" class="link">English</button>
+    <button id="muteBtn" class="link">音 あり</button>
+  </div>
+</section>
+
+<section id="how" class="screen" hidden>
+  <div class="panel">
+    <h2 data-t="how">遊び方</h2>
+    <p class="how-lead" data-t="how_lead"></p>
+    <table class="keys">
+      <tr><th data-t="k_move"></th><td>WASD・矢印キー</td><td class="tc">左の指</td></tr>
+      <tr><th data-t="k_look"></th><td>マウス</td><td class="tc">右をなぞる</td></tr>
+      <tr><th data-t="k_jump"></th><td>Space</td><td class="tc">跳ぶ</td></tr>
+      <tr><th data-t="k_grab"></th><td>E</td><td class="tc">持つ</td></tr>
+      <tr><th data-t="k_make"></th><td>Q</td><td class="tc">つくる</td></tr>
+      <tr><th data-t="k_flag"></th><td>R</td><td class="tc">一時停止の中</td></tr>
+    </table>
+    <ul class="tips"><li data-t="tip1"></li><li data-t="tip2"></li><li data-t="tip3"></li><li data-t="tip4"></li><li data-t="tip5"></li></ul>
+    <p class="credit" data-t="credit"></p>
+    <button id="howClose" class="go small" data-t="back">もどる</button>
+  </div>
+</section>
+
+<section id="pause" class="screen" hidden>
+  <div class="panel narrow">
+    <h2 data-t="p_title">一休み</h2>
+    <button id="resumeBtn" class="go" data-t="p_resume">つづける</button>
+    <button id="flagBtn" class="go ghost" data-t="p_flag">旗に戻る</button>
+    <button id="quitBtn" class="go ghost" data-t="p_quit">タイトルへ</button>
+  </div>
+</section>
+
+<section id="result" class="screen" hidden>
+  <div class="res">
+    <p class="res-k" data-t="r_title">山頂</p>
+    <p class="res-time" id="resTime">0:00</p>
+    <p class="res-line"><span data-t="r_falls"></span> <b id="resFalls">0</b></p>
+    <button id="againBtn" class="go" data-t="r_again">もう一度登る</button>
+  </div>
+</section>
+
+<div id="hud" hidden>
+  <div class="sec"><span id="secNo">01</span><span id="secName"></span><span id="alt">0m</span></div>
+  <button id="pauseBtn" aria-label="pause"><svg viewBox="0 0 20 20"><rect x="5" y="4" width="3" height="12" rx="1"/><rect x="12" y="4" width="3" height="12" rx="1"/></svg></button>
+  <div id="sky"><span id="skyTxt"></span><b id="skyT"></b></div>
+  <div id="gauge"><span class="g-k">⌀</span><b id="gDia">0.0</b><span class="g-u">m</span><span class="g-bar"><i id="gFill"></i><em class="g-mk lift"></em><em class="g-mk push"></em></span><span id="gTag"></span></div>
+  <div id="toast"></div>
+  <div id="hint"></div>
+  <div id="stick"><i id="knob"></i></div>
+  <div id="tbtns">
+    <button class="tbtn" data-k="make" id="bMake"><b data-t="b_make">つくる</b></button>
+    <button class="tbtn" data-k="grab" id="bGrab"><b data-t="b_grab">持つ</b></button>
+    <button class="tbtn big" data-k="jump" id="bJump"><b data-t="b_jump">跳ぶ</b></button>
+  </div>
+</div>
+
+<script src="sfx.js?v=1"></script>
+<script type="module" src="js/game.js?v=1"></script>
+</body>
+</html>
