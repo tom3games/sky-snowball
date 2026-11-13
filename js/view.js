@@ -1,8 +1,8 @@
 // 見た目。コースの箱（physics と同じデータ）からそのままメッシュを作る。
 import * as THREE from 'three'
-import { K } from './phys.js?v=4'
-import { buildNight, PAL } from './night.js?v=4'
-import { loadHero } from './hero.js?v=4'
+import { K } from './phys.js?v=5'
+import { buildNight, PAL } from './night.js?v=5'
+import { loadHero } from './hero.js?v=5'
 import { EffectComposer } from '../vendor/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from '../vendor/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from '../vendor/jsm/postprocessing/UnrealBloomPass.js'

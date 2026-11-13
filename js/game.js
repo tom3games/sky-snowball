@@ -1,9 +1,9 @@
 // SKY SNOWBALL 本体: 入力・カメラ・固定 60Hz の進行・画面の文字
 import * as THREE from 'three'
-import { createWorld, step, DT, K, respawn, placeTarget, rayBox, pushPow, zoneAt, zoneState, snapshot, makeBall, baseOf } from './phys.js?v=4'
-import { COURSE } from './course.js?v=4'
-import { buildView, View } from './view.js?v=4'
-import { T, setLang, lang } from './text.js?v=4'
+import { createWorld, step, DT, K, respawn, placeTarget, rayBox, pushPow, zoneAt, zoneState, snapshot, makeBall, baseOf } from './phys.js?v=5'
+import { COURSE } from './course.js?v=5'
+import { buildView, View } from './view.js?v=5'
+import { T, setLang, lang } from './text.js?v=5'
 
 const $ = s => document.querySelector(s)
 const store = { get(k, d) { try { const v = localStorage.getItem('sky-snowball:' + k); return v == null ? d : JSON.parse(v) } catch (e) { return d } }, set(k, v) { try { localStorage.setItem('sky-snowball:' + k, JSON.stringify(v)) } catch (e) {} } }
@@ -412,7 +412,7 @@ function waitLoad() {
     const iv = setInterval(() => {
       const k = View.toLoad ? View.loaded / View.toLoad : 1
       ldFill.style.width = Math.round(k * 100) + '%'
-      if ((k >= 1 && view.hero.ready) || performance.now() - t0 > 12000) { clearInterval(iv); ok() }
+      if (view.hero.ready || view.hero.failed || performance.now() - t0 > 12000) { clearInterval(iv); ok() }
     }, 80)
   })
 }
