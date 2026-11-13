@@ -34,9 +34,9 @@ function hint(x0, x1, z0, z1, y, key) { hints.push({ x0, x1, z0, z1, y0: y - 1, 
 
 // ===== 0. ふもと =====
 sec('ふもと', -8, 0, '3m の段は跳んでも届かない。雪玉に乗れば手が届く', { en: 'Foothill' })
-flag(0, 0, -4)
+flag(0, 0, -1)
 slab(-9, 9, -8, 10, 0)
-slab(-12, -9, -11, 24, 7, 'rock'); slab(9, 12, -11, 24, 7, 'rock'); slab(-12, 12, -11, -8, 7, 'rock')
+slab(-14, -9, -11, 24, 11, 'rock'); slab(9, 12, -11, 10, 0.9, 'rock'); slab(9, 12, 10, 22, 2.3, 'rock'); slab(-12, 12, -11, -8, 7, 'rock')
 slab(-9, 9, 10, 22, 1.8)                // 跳べば登れる段
 slab(-9, 9, 22, 30, 4.8)                // 跳んでも届かない段（3.0m）
 lamp(-7.5, 1.8, 11); lamp(6, 4.8, 23); hint(-9, 9, -8, 6, 0, 'h_move'); hint(-9, 9, 6, 10, 0, 'h_climb'); hint(-9, 9, 10, 22, 1.8, 'h_make')
@@ -49,8 +49,8 @@ const sl = Math.tan(16 * Math.PI / 180)
 const yTop1 = 4.8 + 14.5 * sl
 ramp(-6, 6, 30, 44.5, 4.8, yTop1)
 slab(-6, 6, 44.5, 46, yTop1)            // くぼみ（奥行き 1.5m）
-slab(7, 13, 22, 47, 2.8)                // 右へ落ちた時に受け止める棚（そこから段へ戻れる）
-slab(13, 15, 22, 47, 8, 'rock')
+slab(7, 13, 30, 47, 2.8)                // 右へ落ちた時に受け止める棚（そこから段へ戻れる）
+slab(13, 15, 30, 47, 3.8, 'rock')
 hint(-6, 6, 30, 38, 4.8, 'h_slope')
 
 // ===== 2. 岩場と穴 =====
@@ -58,9 +58,9 @@ const y2 = +(yTop1 + 3.65).toFixed(2)
 sec('岩場と穴', 46, y2, '穴は跳び越せない。太らせた雪玉を落として足場にする。ただし岩場では太らず、岩の間は大きすぎると通らない', { en: 'Rock Gap' })
 flag(0, y2, 48)
 slab(-8, 8, 46, 58, y2)
-slab(-10, -8, 46, 60, y2 + 5, 'rock'); slab(8, 10, 46, 60, y2 + 5, 'rock')
+slab(-10, -8, 46, 60, y2 + 5, 'rock'); slab(8, 10, 46, 60, y2 + 1.0, 'rock')
 slab(-3, 3, 58, 70, y2, 'rock')         // 岩場（太らない）
-slab(-8, -3, 58, 82, y2 + 4.5, 'rock'); slab(3, 8, 58, 82, y2 + 4.5, 'rock')
+slab(-8, -3, 58, 82, y2 + 4.5, 'rock'); slab(3, 8, 58, 66, y2 + 1.2, 'rock'); slab(3, 8, 66, 77.5, y2 + 4.5, 'rock'); slab(3, 8, 77.5, 82, y2 + 1.2, 'rock')
 slab(-3, -1.12, 63, 65.5, y2 + 3, 'rock'); slab(1.12, 3, 63, 65.5, y2 + 3, 'rock') // 岩の間 2.24m
 const pitY = y2 - 3.9
 slab(-3, 3, 70, 73.4, pitY)             // 穴の底
@@ -73,7 +73,7 @@ const y3 = y2
 sec('雪だるま', 82, y3, '1つの雪玉では押せる大きさに限りがあり、届かない。小さい雪玉を持ち上げて重ね、岩棚から跳び移る', { en: 'Snowman' })
 flag(-2, y3, 84)
 slab(-9, 9, 82, 98, y3)
-slab(-12, -9, 80, 100, y3 + 8, 'rock'); slab(9, 12, 80, 100, y3 + 8, 'rock')
+slab(-12, -9, 80, 100, y3 + 8, 'rock'); slab(9, 12, 80, 100, y3 + 1.0, 'rock')
 slab(5.2, 9, 91, 98, y3 + 2.0, 'rock')  // 岩棚（跳べば上がれる）
 const y4 = y3 + 5.0
 slab(-9, 9, 98, 108, y4)                // 4.9〜5.0m の崖
@@ -82,7 +82,7 @@ lamp(7.5, y3 + 2, 92); lamp(-6, y4, 99); hint(-9, 9, 84, 96, y3, 'h_stack')
 // ===== 4. 日なた =====
 sec('湯けむりの岩棚', 98, y4, '岩の割れ目から吹く湯気で雪玉が溶けて縮む。湯気が止んだ隙に運ぶ', { en: 'Steam Vents' })
 flag(-4, y4, 101)
-slab(-12, -9, 96, 128, y4 + 8, 'rock'); slab(9, 12, 96, 108, y4 + 6, 'rock')
+slab(-12, -9, 96, 128, y4 + 8, 'rock'); slab(9, 12, 96, 108, y4 + 1.0, 'rock')
 slab(-9, 3, 108, 126, y4)               // 日なたの道
 slab(3, 5, 108, 126, y4 + 0.5, 'rock', { noGrab: true }) // 縁石
 const y5 = y4 + 3.6
@@ -117,7 +117,7 @@ lamp(-7.5, y6, 162); lamp(-7.5, y6, 169); lamp(-7, y7, 177); hint(-9, 0, 154, 16
 // ===== 7. 深い新雪 =====
 sec('深い新雪', 176, y7, '人は腰まで埋まって進めない。雪玉に乗って転がす。ただし太りすぎると門を通らない', { en: 'Deep Powder' })
 flag(-4, y7, 178)
-slab(-12, -9, 176, 214, y7 + 8, 'rock'); slab(0, 3, 176, 214, y7 + 8, 'rock')
+slab(-12, -9, 176, 214, y7 + 8, 'rock'); slab(0, 3, 176, 214, y7 + 1.4, 'rock')
 const dTop = y7, dBot = y7 - 26 * Math.tan(4 * Math.PI / 180)
 ramp(-9, 0, 182, 208, dTop, dBot)
 zones.push({ kind: 'deep', x0: -9, x1: 0, z0: 182.5, z1: 208, y0: dBot - 2, y1: dTop + 3, id: 'deep7' })
@@ -130,7 +130,7 @@ lamp(-5.5, dBot + 5, 209.5); lamp(-3.5, dBot + 5, 209.5); hint(-9, 0, 182, 188, 
 // ===== 8. 氷の壁 =====
 sec('氷の壁', 216, y9, '氷の壁は人では壊せない。高い所で育てた重い雪玉を坂で走らせてぶつける', { en: 'Ice Wall' })
 flag(2, y9, 218)
-slab(-12, -9, 214, 244, y9 + 9, 'rock'); slab(6, 9, 214, 244, y9 + 9, 'rock')
+slab(-12, -9, 214, 244, y9 + 9, 'rock'); slab(6, 9, 214, 244, y9 + 1.2, 'rock')
 slab(-9, 6, 216, 244, y9, 'rock')                     // 床（岩。ここでは太らない）
 slab(-9, -2.5, 216, 223, y9 + 2.0)                    // 高い雪の台（跳べば上がれる）
 ramp(-9, -2.5, 223, 229.5, y9 + 2.0, y9, 'snow', 4)   // 壁へ下る坂
@@ -142,7 +142,7 @@ lamp(-3, y9 + 2.0, 217.5); lamp(4.5, y9, 234.5); hint(-9, 6, 216, 222, y9, 'h_wa
 sec('重りの門', 244, y10, '門は重さでしか開かない。大きい雪玉を踏み板に置いたまま、もう1つ作って運ぶ', { en: 'Weighted Gate' })
 slab(-9, 6, 244, 252, y9, 'rock')                     // 崖の下（壁を割った先）
 flag(-3, y10, 254.5)
-slab(-12, -9, 252, 280, y10 + 9, 'rock'); slab(6, 9, 252, 280, y10 + 9, 'rock')
+slab(-12, -9, 252, 280, y10 + 9, 'rock'); slab(6, 9, 252, 280, y10 + 1.2, 'rock')
 slab(-9, 6, 252, 266, y10)                            // 雪原
 box({ x: 3.5, y: y10 + 0.02, z: 259, w: 3, h: 0.3, d: 3, mat: 'rock', plate: 1.0, noGrab: true }) // 踏み板
 box({ x: -1.5, y: y10 + 2.6, z: 266.6, w: 15, h: 5.2, d: 1.2, mat: 'rock', gate: 0, noGrab: true }) // 門
@@ -155,12 +155,19 @@ sec('山頂', 272, ySum, '', { en: 'Summit' })
 slab(-12, 9, 272, 290, ySum)
 flag(-3, ySum, 278)
 
+// ランタンの柱と旗竿（細い当たり。見た目は view/night が同じ位置に描く）
+for (const L of lamps) box({ x: L.x, y: L.y + 0.95, z: L.z, w: 0.12, h: 1.9, d: 0.12, mat: 'rock', prop: true, noGrab: true })
+for (const f of flags) {
+  box({ x: f.x - 1.6, y: f.y + 0.95, z: f.z + 0.9, w: 0.12, h: 1.9, d: 0.12, mat: 'rock', prop: true, noGrab: true })
+  box({ x: f.x + 1.4, y: f.y + 1.3, z: f.z + 0.9, w: 0.1, h: 2.6, d: 0.1, mat: 'rock', prop: true, noGrab: true })
+}
+
 // 門と踏み板をつなぐ
 { const pl = B.find(b => b.plate), gt = B.find(b => b.gate === 0); gt.gate = pl.id }
 
 export const COURSE = {
   boxes: B, zones, flags, sections, hints, lamps, H: { yTop1, y2, pitY, y3, y4, y5, y6, y7, dBot, y9, y10, ySum },
-  start: { x: 0, y: 0, z: -4, yaw: 0 },
+  start: { x: 0, y: 0, z: -1, yaw: 0 },
   killY: -18,
   summit: { x: -3, y: ySum, z: 282 },
 }

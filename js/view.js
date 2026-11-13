@@ -1,8 +1,12 @@
 // 見た目。コースの箱（physics と同じデータ）からそのままメッシュを作る。
 import * as THREE from 'three'
-import { K } from './phys.js?v=1'
-import { buildNight, PAL } from './night.js?v=1'
-import { loadHero } from './hero.js?v=1'
+import { K } from './phys.js?v=2'
+import { buildNight, PAL } from './night.js?v=2'
+import { loadHero } from './hero.js?v=2'
+import { EffectComposer } from '../vendor/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from '../vendor/jsm/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from '../vendor/jsm/postprocessing/UnrealBloomPass.js'
+import { OutputPass } from '../vendor/jsm/postprocessing/OutputPass.js'
 
 const loader = new THREE.TextureLoader()
 const TEX = {}
@@ -58,10 +62,35 @@ export function buildView(W, host) {
   const scene = new THREE.Scene()
   scene.fog = new THREE.FogExp2(new THREE.Color(PAL.fog), 0.0085)
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 1500)
+  // 後処理: ランタンと灯台の光をにじませる
+  const composer = new EffectComposer(renderer)
+  composer.addPass(new RenderPass(scene, camera))
+  const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.55, 0.86)
+  composer.addPass(bloom)
+  composer.addPass(new OutputPass())
+  // 降る雪（カメラのまわり 40m の箱の中をくり返す）
+  const NS = 1600, sPos = new Float32Array(NS * 3)
+  for (let i = 0; i < NS; i++) { sPos[i * 3] = (Math.random() - 0.5) * 40; sPos[i * 3 + 1] = Math.random() * 30; sPos[i * 3 + 2] = (Math.random() - 0.5) * 40 }
+  const snowG = new THREE.BufferGeometry(); snowG.setAttribute('position', new THREE.BufferAttribute(sPos, 3))
+  const snowM = new THREE.PointsMaterial({ color: 0xe8ecff, size: 0.06, transparent: true, opacity: 0.8, depthWrite: false })
+  const snowPts = new THREE.Points(snowG, snowM); snowPts.frustumCulled = false; scene.add(snowPts)
+  function fall(dt, cam) {
+    const a = snowG.attributes.position.array, t = performance.now() / 1000
+    for (let i = 0; i < NS; i++) {
+      let x = a[i * 3], y = a[i * 3 + 1], z = a[i * 3 + 2]
+      y -= dt * (0.7 + (i % 5) * 0.12); x += Math.sin(t * 0.7 + i) * dt * 0.3
+      const cx = cam.position.x, cy = cam.position.y, cz = cam.position.z
+      if (y < cy - 12) y += 30; if (y > cy + 18) y -= 30
+      if (x < cx - 20) x += 40; if (x > cx + 20) x -= 40
+      if (z < cz - 20) z += 40; if (z > cz + 20) z -= 40
+      a[i * 3] = x; a[i * 3 + 1] = y; a[i * 3 + 2] = z
+    }
+    snowG.attributes.position.needsUpdate = true
+  }
 
   const hemi = new THREE.HemisphereLight(0x7f8ad8, 0x2a2638, 1.6); scene.add(hemi)
   // 月とオーロラの光（青白い）
-  const sun = new THREE.DirectionalLight(0xbfc8ff, 2.2)
+  const sun = new THREE.DirectionalLight(0xbfc8ff, 2.7)
   sun.position.set(-30, 50, -20); sun.castShadow = true
   sun.shadow.mapSize.set(2048, 2048)
   const sc = sun.shadow.camera; sc.left = -28; sc.right = 28; sc.top = 28; sc.bottom = -28; sc.near = 1; sc.far = 160
@@ -72,6 +101,7 @@ export function buildView(W, host) {
   // コースの箱
   const boxMeshes = new Map()
   for (const b of W.boxes) {
+    if (b.prop) continue
     const w = b.h.x * 2, h = b.h.y * 2, d = b.h.z * 2
     const geo = new THREE.BoxGeometry(w, h, d)
     let mm
@@ -119,10 +149,12 @@ export function buildView(W, host) {
 
   // 旗（黄ばんだ布）
   const flagObjs = W.flags.map((f, i) => {
-    const g = new THREE.Group(); g.position.set(f.x, f.y, f.z)
+    const g = new THREE.Group(); g.position.set(f.x + 1.4, f.y, f.z + 0.9)
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.6, 8), new THREE.MeshStandardMaterial({ color: 0x5a4c3e, roughness: 0.8 }))
     pole.position.y = 1.3; pole.castShadow = true; g.add(pole)
-    const cg = new THREE.PlaneGeometry(0.9, 0.55, 10, 4); cg.translate(0.45, 0, 0)
+    const cg = new THREE.PlaneGeometry(0.95, 0.5, 10, 4); cg.translate(0.475, 0, 0)
+    // 燕尾（先を V に切る）: 先端側の真ん中の頂点を内側へ寄せる
+    { const a = cg.attributes.position; for (let k = 0; k < a.count; k++) { const x = a.getX(k), y = a.getY(k); const w = x / 0.95; a.setX(k, x - (1 - Math.abs(y) / 0.25) * 0.28 * w * w); a.setY(k, y * (1 - 0.35 * w)) } }
     const cloth = new THREE.Mesh(cg, new THREE.MeshStandardMaterial({ color: 0xcdb46a, roughness: 0.95, side: THREE.DoubleSide }))
     cloth.position.y = 2.2; cloth.castShadow = true; g.add(cloth)
     const cairn = new THREE.Mesh(new THREE.DodecahedronGeometry(0.35, 0), M.rock); cairn.position.y = 0.15; cairn.scale.set(1.2, 0.6, 1.1); g.add(cairn)
@@ -136,7 +168,7 @@ export function buildView(W, host) {
   { const p = ballGeo.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const k = 1 + 0.028 * Math.sin(x * 9 + y * 4) * Math.sin(z * 7 - y * 5) + 0.018 * Math.sin(x * 23 + z * 17); p.setXYZ(i, x * k, y * k, z * k) } ballGeo.computeVertexNormals() }
   const ballMeshes = new Map()
   const puffTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); return t })()
-  const night = buildNight(scene, W, M, { ballGeo, puffTex })
+  const night = buildNight(scene, W, M, { ballGeo, puffTex, onFog: c => { scene.fog.color.copy(c); View.fog = '#' + c.getHexString() } })
   // 転がった跡（雪がはがれて少し暗い帯）
   const NT = 2400
   const trackGeo = new THREE.PlaneGeometry(1, 1); trackGeo.rotateX(-Math.PI / 2)
@@ -192,7 +224,7 @@ export function buildView(W, host) {
 
   function resize() {
     const w = host.clientWidth || innerWidth, h = host.clientHeight || innerHeight
-    renderer.setSize(w, h, false); camera.aspect = w / h
+    renderer.setSize(w, h, false); composer.setSize(w, h); bloom.resolution.set(w / 2, h / 2); camera.aspect = w / h
     camera.fov = w < h ? 68 : 55
     camState.dist = w < h ? 8.8 : 7.6
     camera.updateProjectionMatrix()
@@ -291,12 +323,12 @@ export function buildView(W, host) {
       const lit = W.flags[i].lit, a = fo.cloth.geometry.attributes.position
       for (let k = 0; k < a.count; k++) {
         const bx = fo.base[k * 3], by = fo.base[k * 3 + 1]
-        const w = bx / 0.9
+        const w = bx / 0.95
         a.setZ(k, Math.sin(W.t * (lit ? 6 : 3) + bx * 5 + by) * 0.12 * w)
         a.setY(k, by - w * (lit ? 0.04 : 0.18))
       }
       a.needsUpdate = true
-      fo.cloth.material.color.setHex(lit ? 0xc9a548 : 0x8a7c5a)
+      fo.cloth.material.color.setHex(lit ? 0xd9b34a : 0x9a8a58)
     })
     // 吹雪
     const wz = windZ[0]
@@ -327,10 +359,11 @@ export function buildView(W, host) {
       syncBalls(W, dt); poseHero(W, dt, extra); updateFX(W, dt)
       // 影の箱を人について動かす
       const p = W.p.pos
-      sun.position.set(p.x - 22, p.y + 40, p.z - 14); sun.target.position.set(p.x, p.y, p.z)
+      sun.position.set(p.x - 26, p.y + 26, p.z - 34); sun.target.position.set(p.x, p.y, p.z)
       const rt = performance.now() / 1000
       for (const f of night.tick) f(rt, camera, W.p.pos, dt)
-      renderer.render(scene, camera)
+      fall(Math.min(dt, 0.05), camera)
+      composer.render()
     },
     resize,
   }

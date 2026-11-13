@@ -7,3 +7,4 @@ support.js
 tools/*.add
 tools/compare.mjs
 tools/palette.mjs
+tools/match.mjs

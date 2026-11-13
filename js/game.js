@@ -1,9 +1,9 @@
 // SKY SNOWBALL 本体: 入力・カメラ・固定 60Hz の進行・画面の文字
 import * as THREE from 'three'
-import { createWorld, step, DT, K, respawn, placeTarget, rayBox, pushPow, zoneAt, zoneState, snapshot, makeBall, baseOf } from './phys.js?v=1'
-import { COURSE } from './course.js?v=1'
-import { buildView, View } from './view.js?v=1'
-import { T, setLang, lang } from './text.js?v=1'
+import { createWorld, step, DT, K, respawn, placeTarget, rayBox, pushPow, zoneAt, zoneState, snapshot, makeBall, baseOf } from './phys.js?v=2'
+import { COURSE } from './course.js?v=2'
+import { buildView, View } from './view.js?v=2'
+import { T, setLang, lang } from './text.js?v=2'
 
 const $ = s => document.querySelector(s)
 const store = { get(k, d) { try { const v = localStorage.getItem('sky-snowball:' + k); return v == null ? d : JSON.parse(v) } catch (e) { return d } }, set(k, v) { try { localStorage.setItem('sky-snowball:' + k, JSON.stringify(v)) } catch (e) {} } }
@@ -53,25 +53,38 @@ function look(dx, dy, k) { cam.yaw -= dx * k; cam.pitch = Math.max(-0.25, Math.m
 // スマホ: 左で歩く（指を置いた所が中心）、右をなぞって見回す、右下のボタン
 const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 }
 const lookT = { id: null, x: 0, y: 0 }
+const pinch = { a: null, b: null, d: 0 }
+const touches = new Map()
 const stickEl = $('#stick'), knob = $('#knob')
+// 左下に固定のスティック。中心はいつも同じ所
+function stickCenter() { const r = stickEl.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, R: r.width / 2 } }
 function onTouchStart(e) {
   if (state !== 'play') return
   for (const t of e.changedTouches) {
     if (t.target.closest('.tbtn')) continue
-    if (t.clientX < innerWidth * 0.45 && stick.id === null) {
-      stick.id = t.identifier; stick.ox = t.clientX; stick.oy = t.clientY; stick.x = stick.y = 0
-      stickEl.style.left = t.clientX + 'px'; stickEl.style.top = t.clientY + 'px'; stickEl.classList.add('on')
+    touches.set(t.identifier, { x: t.clientX, y: t.clientY })
+    const c = stickCenter()
+    if (stick.id === null && Math.hypot(t.clientX - c.x, t.clientY - c.y) < c.R * 1.6) {
+      stick.id = t.identifier; stick.ox = c.x; stick.oy = c.y; moveStick(t.clientX, t.clientY); stickEl.classList.add('on')
     } else if (lookT.id === null) { lookT.id = t.identifier; lookT.x = t.clientX; lookT.y = t.clientY }
+    else if (pinch.a === null) { pinch.a = lookT.id; pinch.b = t.identifier; const A = touches.get(pinch.a); pinch.d = Math.hypot(A.x - t.clientX, A.y - t.clientY) }
   }
   e.preventDefault()
 }
+function moveStick(x, y) {
+  let dx = x - stick.ox, dy = y - stick.oy; const l = Math.hypot(dx, dy), R = stickCenter().R * 0.8
+  if (l > R) { dx *= R / l; dy *= R / l }
+  stick.x = dx / R; stick.y = dy / R
+  knob.style.transform = `translate(${dx}px,${dy}px)`
+}
 function onTouchMove(e) {
   for (const t of e.changedTouches) {
-    if (t.identifier === stick.id) {
-      let dx = t.clientX - stick.ox, dy = t.clientY - stick.oy; const l = Math.hypot(dx, dy), R = 56
-      if (l > R) { dx *= R / l; dy *= R / l }
-      stick.x = dx / R; stick.y = dy / R
-      knob.style.transform = `translate(${dx}px,${dy}px)`
+    touches.set(t.identifier, { x: t.clientX, y: t.clientY })
+    if (t.identifier === stick.id) moveStick(t.clientX, t.clientY)
+    else if (pinch.a !== null && (t.identifier === pinch.a || t.identifier === pinch.b)) {
+      const A = touches.get(pinch.a), B = touches.get(pinch.b); if (!A || !B) continue
+      const d = Math.hypot(A.x - B.x, A.y - B.y); zoom((pinch.d - d) * 0.025); pinch.d = d
+      lookT.x = touches.get(lookT.id)?.x ?? lookT.x; lookT.y = touches.get(lookT.id)?.y ?? lookT.y
     } else if (t.identifier === lookT.id) {
       look(t.clientX - lookT.x, t.clientY - lookT.y, 0.0075); lookT.x = t.clientX; lookT.y = t.clientY
     }
@@ -80,10 +93,15 @@ function onTouchMove(e) {
 }
 function onTouchEnd(e) {
   for (const t of e.changedTouches) {
+    touches.delete(t.identifier)
     if (t.identifier === stick.id) { stick.id = null; stick.x = stick.y = 0; knob.style.transform = ''; stickEl.classList.remove('on') }
-    if (t.identifier === lookT.id) lookT.id = null
+    if (t.identifier === pinch.a || t.identifier === pinch.b) { const keep = t.identifier === pinch.a ? pinch.b : pinch.a; pinch.a = pinch.b = null; lookT.id = touches.has(keep) ? keep : null; if (lookT.id !== null) { const k = touches.get(keep); lookT.x = k.x; lookT.y = k.y } }
+    else if (t.identifier === lookT.id) lookT.id = null
   }
 }
+// 寄る・引く（ホイール・2本指）
+function zoom(d) { cam.zoom = Math.max(-3.5, Math.min(7, (cam.zoom || 0) + d)) }
+addEventListener('wheel', e => { if (state === 'play') { zoom(e.deltaY * 0.006); e.preventDefault() } }, { passive: false })
 const tz = $('#touchzone')
 tz.addEventListener('touchstart', onTouchStart, { passive: false })
 tz.addEventListener('touchmove', onTouchMove, { passive: false })
@@ -137,17 +155,19 @@ function applyText() {
 }
 setLang(store.get('lang', (navigator.language || 'ja').startsWith('ja') ? 'ja' : 'en')); applyText()
 
-$('#startBtn').onclick = () => { Snd.init(); begin(false) }
-$('#contBtn').onclick = () => { Snd.init(); begin(true) }
+const lockView = () => { if (!touch && canvas.requestPointerLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}) } catch (e) {} } }
+$('#startBtn').onclick = () => { Snd.init(); begin(false); lockView() }
+$('#contBtn').onclick = () => { Snd.init(); begin(true); lockView() }
 $('#howBtn').onclick = () => show('how')
 $('#howClose').onclick = () => show('title')
 $('#langBtn').onclick = () => { setLang(lang() === 'ja' ? 'en' : 'ja'); store.set('lang', lang()); applyText() }
 $('#muteBtn').onclick = () => { muted = !muted; Snd.setMute(muted); store.set('mute', muted); applyText() }
-$('#resumeBtn').onclick = () => pause(false)
+$('#resumeBtn').onclick = () => { pause(false); lockView() }
 $('#flagBtn').onclick = () => { pause(false); respawn(W, 'manual'); falls++ }
 $('#quitBtn').onclick = () => { pause(false); state = 'title'; show('title'); refreshTitle() }
 $('#pauseBtn').onclick = () => pause(true)
 $('#againBtn').onclick = () => begin(false)
+document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && state === 'play' && !paused && !touch) pause(true) })
 function pause(on) { paused = on; show(on ? 'pause' : null); if (on && document.exitPointerLock) document.exitPointerLock() }
 function refreshTitle() {
   const s = store.get('save', null)
@@ -165,7 +185,6 @@ function begin(cont) {
   state = 'play'; paused = false; show(null); lastSec = -1
   Snd.loop('wind', 'snd/wind.mp3', 0.32)
   Snd.loop('roll', 'snd/roll.mp3', 0.0001, 0.05)
-  if (!touch) toast(T('t_click'), 3)
 }
 
 const fmt = t => { const m = Math.floor(t / 60), s = Math.floor(t % 60); return `${m}:${String(s).padStart(2, '0')}` }
@@ -325,9 +344,9 @@ function updateCamera(dt) {
   }
   const cp = Math.cos(cam.pitch)
   const dir = { x: Math.sin(cam.yaw) * cp, y: Math.sin(cam.pitch), z: Math.cos(cam.yaw) * cp }
-  let dist = cam.dist + (cam.extra || 0)
+  let dist = Math.max(2.2, cam.dist + (cam.extra || 0) + (cam.zoom || 0))
   // 壁に埋まらない
-  for (const b of W.boxes) { const h = rayBox({ x: cam.cur.x, y: cam.cur.y, z: cam.cur.z }, dir, b, dist); if (h && h.t < dist) dist = Math.max(1.2, h.t - 0.35) }
+  for (const b of W.boxes) { if (b.prop) continue; const h = rayBox({ x: cam.cur.x, y: cam.cur.y, z: cam.cur.z }, dir, b, dist); if (h && h.t < dist) dist = Math.max(1.2, h.t - 0.35) }
   cam.d = cam.d == null ? dist : (dist < cam.d ? dist : cam.d + (dist - cam.d) * Math.min(1, dt * 3))
   view.camera.position.set(cam.cur.x + dir.x * cam.d, cam.cur.y + dir.y * cam.d, cam.cur.z + dir.z * cam.d)
   view.camera.lookAt(cam.cur.x, cam.cur.y, cam.cur.z)

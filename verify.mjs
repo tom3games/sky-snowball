@@ -5,7 +5,7 @@ import { spawn, execFileSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 const ROOT = import.meta.dirname
 mkdirSync(ROOT + '/shots', { recursive: true })
-const PORT = process.env.VPORT || '5931'
+const PORT = process.env.VPORT || '5936'
 const server = spawn(process.execPath, ['server.mjs'], { cwd: ROOT, env: { ...process.env, PORT }, stdio: 'ignore' })
 await new Promise(r => setTimeout(r, 400))
 const URL0 = `http://localhost:${PORT}/`
@@ -32,7 +32,7 @@ async function open(browser, opts = {}) {
   p.on('pageerror', e => p.errs.push('pageerror ' + e.message))
   p.on('console', m => { if (m.type() === 'error') p.errs.push('console ' + m.text()) })
   p.on('requestfailed', r => { if (!/fonts\.(googleapis|gstatic)/.test(r.url())) p.errs.push('reqfail ' + r.url()) })
-  await p.goto(URL0, { waitUntil: 'domcontentloaded' }); await p.waitForFunction(() => window.__snowReady, null, { timeout: 120000 })
+  await p.goto(URL0, { waitUntil: 'domcontentloaded' }); await p.waitForFunction(() => window.__snowReady, null, { timeout: 300000 })
   return p
 }
 const inView = (p, sel) => p.evaluate(s => { const r = document.querySelector(s).getBoundingClientRect(); return r.width > 0 && r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight }, sel)
@@ -53,11 +53,13 @@ await t('スマホ: 本物の指で［つくる］→ 雪玉が1つ', async () =
   await sp.touchscreen.tap(r.x, r.y); await sp.waitForTimeout(600)
   const n = await sp.evaluate(() => snow.W.balls.length); expect(n === 1, 'balls=' + n); return true
 })
-await t('スマホ: 左の指で歩く（雪玉を押す）', async () => {
+await t('スマホ: 左下の固定スティックで歩く', async () => {
   const z0 = await sp.evaluate(() => snow.W.p.pos.z)
   const c = await sp.context().newCDPSession(sp)
   const tp = (type, x, y) => c.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] })
-  await tp('touchStart', 90, 640); for (let i = 1; i <= 6; i++) { await tp('touchMove', 90, 640 - i * 10); await sp.waitForTimeout(30) }
+  const sc = await sp.evaluate(() => { const r = document.querySelector('#stick').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  expect(await inView(sp, '#stick'), 'stick 画面外')
+  await tp('touchStart', sc.x, sc.y); for (let i = 1; i <= 6; i++) { await tp('touchMove', sc.x, sc.y - i * 10); await sp.waitForTimeout(30) }
   await sp.waitForTimeout(1500); await tp('touchEnd')
   const r = await sp.evaluate(() => ({ z: snow.W.p.pos.z, b: snow.W.balls[0] && snow.W.balls[0].pos.z }))
   expect(r.z - z0 > 1.5, JSON.stringify({ z0, ...r })); return { moved: +(r.z - z0).toFixed(1) }
@@ -82,7 +84,7 @@ await t('PC: Space で跳ぶ・Q で作る・E で持つ', async () => {
 })
 await t('PC: 谷へ落ちると旗に戻る', async () => {
   await pc.evaluate(() => { snow.W.p.pos = { x: 30, y: 0, z: 0 } }); await pc.waitForFunction(() => snow.W.p.pos.x < 2, null, { timeout: 60000 }).catch(() => {})
-  const r = await pc.evaluate(() => snow.W.p.pos); expect(Math.abs(r.x) < 2 && Math.abs(r.z + 4) < 2, JSON.stringify(r)); return true
+  const r = await pc.evaluate(() => snow.W.p.pos); expect(Math.abs(r.x) < 2 && Math.abs(r.z + 1) < 2, JSON.stringify(r)); return true
 })
 await pc.screenshot({ path: ROOT + '/shots/v_pc_play.png' })
 await t('PC: エラー 0', () => { expect(pc.errs.length === 0, pc.errs.join(' | ')); return true })

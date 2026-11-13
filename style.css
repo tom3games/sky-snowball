@@ -94,8 +94,9 @@ html:not(.touch) .keys td.tc, html.touch .keys td:nth-child(2) { display: none; 
 html.touch #hint { bottom: auto; top: calc(78px + env(safe-area-inset-top)); font-size: 13px; }
 
 /* スマホの操作 */
-#stick { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 2px solid #ffffff55; display: none; left: 90px; top: 70%; }
-#stick.on { display: block; }
+#stick { position: absolute; width: 124px; height: 124px; border-radius: 50%; border: 2px solid #ffffff66; background: #0f182455; display: none; left: calc(22px + env(safe-area-inset-left)); bottom: calc(26px + var(--safe-b)); }
+html.touch #stick { display: block; }
+#stick.on { border-color: #ffffffaa; }
 #knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: #ffffffaa; }
 #tbtns { display: none; position: absolute; right: calc(14px + env(safe-area-inset-right)); bottom: calc(16px + var(--safe-b)); width: 200px; height: 190px; }
 html.touch #tbtns { display: block; }

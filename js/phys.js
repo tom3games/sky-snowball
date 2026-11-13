@@ -146,7 +146,7 @@ export function zoneState(W, z) {
 export function makeBall(W, x, y, z, r) {
   if (W.balls.length >= K.ballsMax) {
     // 一番古い、持っていない・乗っていない雪玉を溶かす
-    const old = W.balls.find(b => b !== W.p.hold && b !== W.p.gBall && !W.balls.some(o => o.on === b))
+    const old = W.balls.find(b => b !== W.p.hold && b !== W.p.gBall && !W.balls.some(o => o.on === b) && !(b.gBox && b.gBox.plate) && !(W.p.push && W.p.push.b === b))
     if (old) removeBall(W, old, 'melt')
   }
   const b = { id: W.nextId++, pos: v3(x, y, z), vel: v3(), r, ground: false, gn: v3(0, 1, 0), gmat: 'rock', gBox: null,

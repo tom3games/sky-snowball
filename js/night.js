@@ -18,10 +18,10 @@ export function buildNight(scene, W, M, opt) {
     const geo = new THREE.SphereGeometry(950, 48, 24)
     const mat = new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { t: { value: 0 }, top: { value: new THREE.Color(PAL.skyTop) }, mid: { value: new THREE.Color(PAL.sky) }, hor: { value: new THREE.Color(PAL.horizon) }, a1: { value: new THREE.Color(PAL.aurora1) }, a2: { value: new THREE.Color(PAL.aurora2) } },
+      uniforms: { t: { value: 0 }, pano: { value: null }, hasPano: { value: 0 }, top: { value: new THREE.Color(PAL.skyTop) }, mid: { value: new THREE.Color(PAL.sky) }, hor: { value: new THREE.Color(PAL.horizon) }, a1: { value: new THREE.Color(PAL.aurora1) }, a2: { value: new THREE.Color(PAL.aurora2) } },
       vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: `
-        varying vec3 vP; uniform float t; uniform vec3 top, mid, hor, a1, a2;
+        varying vec3 vP; uniform float t; uniform vec3 top, mid, hor, a1, a2; uniform sampler2D pano; uniform float hasPano;
         float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
         float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }
         void main(){
@@ -41,11 +41,35 @@ export function buildNight(scene, W, M, opt) {
           vec2 sp = vec2(az * 160.0, y * 260.0);
           float s = step(0.9975, h(floor(sp))) * smoothstep(0.08, 0.4, y);
           c += vec3(s) * (0.6 + 0.4 * sin(t * 2.0 + h(floor(sp)) * 40.0));
+          if (hasPano > 0.5) {
+            // 描いた360度の遠景。地平線は絵の下から 0.39。上は 60 度で絵の上端、下は -35 度で下端
+            float el = asin(clamp(y, -1.0, 1.0));
+            float v = el >= 0.0 ? 0.39 + min(1.0, el / 1.05) * 0.605 : 0.39 + max(-1.0, el / 0.61) * 0.385;
+            vec2 uv = vec2(fract(az / 6.2831853 + 0.5), clamp(v, 0.003, 0.997));
+            vec3 pc = texture2D(pano, uv).rgb;
+            // 天頂は絵が無いので空の色へ
+            pc = mix(pc, top, smoothstep(0.9, 1.0, y));
+            // オーロラは絵に描いてあるので、動きだけ薄く重ねる
+            c = pc + ac * a * 0.18;
+          }
           gl_FragColor = vec4(c, 1.0);
           #include <colorspace_fragment>
         }`,
     })
     const sky = new THREE.Mesh(geo, mat); sky.renderOrder = -10; scene.add(sky)
+    new THREE.TextureLoader().load('assets/pano.jpg', tx => {
+      tx.colorSpace = THREE.SRGBColorSpace; tx.wrapS = THREE.RepeatWrapping; tx.anisotropy = 4
+      mat.uniforms.pano.value = tx; mat.uniforms.hasPano.value = 1
+      // 霧の色 = 絵の地平線の少し下の色（全周の平均）
+      try {
+        const im = tx.image, cv = document.createElement('canvas'); cv.width = 256; cv.height = 128
+        const g = cv.getContext('2d'); g.drawImage(im, 0, 0, 256, 128)
+        const d = g.getImageData(0, Math.round(128 * (1 - 0.37)), 256, 3).data
+        let r = 0, gg = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2] }
+        const n = d.length / 4
+        opt.onFog && opt.onFog(new THREE.Color().setRGB(r / n / 255, gg / n / 255, b / n / 255, THREE.SRGBColorSpace))
+      } catch (e) {}
+    })
     out.tick.push((t, cam) => { mat.uniforms.t.value = t; sky.position.copy(cam.position) })
   }
 
@@ -53,16 +77,22 @@ export function buildNight(scene, W, M, opt) {
   {
     const colGeo = new THREE.CylinderGeometry(0.46, 0.46, 1, 6, 1)
     colGeo.translate(0, -0.5, 0) // 上端を原点に
-    const colMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.62, metalness: 0.08, flatShading: true })
+    const rf = M.cliff.map.clone(); rf.repeat.set(1, 5); rf.needsUpdate = true
+    const rn = M.cliff.normalMap.clone(); rn.repeat.set(1, 5); rn.needsUpdate = true
+    const colMat = new THREE.MeshStandardMaterial({ map: rf, normalMap: rn, normalScale: new THREE.Vector2(1.6, 1.6), color: 0xffffff, roughness: 0.45, metalness: 0.12, flatShading: true })
+    // 雪の張り出し（崖の上の縁。面から 0.12m まで）
+    const cornGeo = new THREE.SphereGeometry(1, 10, 6)
+    const cornMat = new THREE.MeshStandardMaterial({ map: M.snow.map, normalMap: M.snow.normalMap, normalScale: new THREE.Vector2(0.6, 0.6), color: PAL.snow, roughness: 0.95 })
+    const corn = []
     const capGeo = new THREE.CylinderGeometry(0.5, 0.46, 0.16, 6, 1)
     const capMat = new THREE.MeshStandardMaterial({ map: M.snow.map, color: PAL.snow, roughness: 0.95 })
     const iceGeo = new THREE.ConeGeometry(0.06, 1, 5); iceGeo.rotateX(Math.PI); iceGeo.translate(0, -0.5, 0)
     // ConeGeometry は先が +y。rotateX(π) で先が下
     const iceMat = new THREE.MeshStandardMaterial({ color: 0xbfd6ff, roughness: 0.1, metalness: 0.0, transparent: true, opacity: 0.85 })
     const cols = [], caps = [], ices = []
-    const inside = (x, y, z, self) => W.boxes.some(b => b !== self && !b.pitch && !b.roll && x > b.min.x && x < b.max.x && y > b.min.y && y < b.max.y && z > b.min.z && z < b.max.z)
+    const inside = (x, y, z, self) => W.boxes.some(b => b !== self && !b.prop && !b.pitch && !b.roll && x > b.min.x && x < b.max.x && y > b.min.y && y < b.max.y && z > b.min.z && z < b.max.z)
     for (const b of W.boxes) {
-      if (b.pitch || b.roll || b.gate) continue
+      if (b.prop || b.pitch || b.roll || b.gate || b.breakable || b.plate || b.mat === 'ice') continue
       const top = b.max.y
       const bot = Math.max(b.min.y, top - 16)
       if (top - bot < 0.6) continue
@@ -78,6 +108,7 @@ export function buildNight(scene, W, M, opt) {
           const dt = rnd() < 0.2 ? 0.3 + rnd() * 0.5 : 0.04 + rnd() * 0.18 // 柱の頭は少し下がって段々に
           const len = top - dt - bot
           cols.push([cx, top - dt, cz, len, rnd() * 6, 0.8 + rnd() * 0.2])
+          if (b.mat === 'snow' && i % 1 === 0) corn.push([x - nx * 0.18, top - 0.04, z - nz * 0.18, nx, nz, step])
           if (b.mat !== 'ice') caps.push([cx, top - dt + 0.05, cz, cols[cols.length - 1][5], cols[cols.length - 1][4]])
           // つらら（崖の上の縁、手前に向いた面に多く）
           if (top - bot > 2 && rnd() < (nz < 0 ? 0.55 : 0.25)) ices.push([x + nx * 0.06, top - dt - 0.02, z + nz * 0.06, 0.25 + rnd() * rnd() * 1.1])
@@ -87,15 +118,22 @@ export function buildNight(scene, W, M, opt) {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3()
     const cI = new THREE.InstancedMesh(colGeo, colMat, cols.length)
     cols.forEach(([x, y, z, l, r, w], i) => { q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r); m4.compose(p.set(x, y, z), q, s.set(w, l, w)); cI.setMatrixAt(i, m4) })
-    const cc = new THREE.Color(); cols.forEach((_, i) => { const v = 0.75 + rnd() * 0.35; cc.setHex(PAL.basalt).multiplyScalar(v * 1.25); if (rnd() < 0.12) cc.lerp(new THREE.Color(0x4a3a30), 0.5); cI.setColorAt(i, cc) })
+    const cc = new THREE.Color(); cols.forEach((_, i) => { const v = 0.75 + rnd() * 0.35; cc.setHex(0x6a6878).multiplyScalar(v * 1.15); if (rnd() < 0.12) cc.lerp(new THREE.Color(0x4a3a30), 0.5); cI.setColorAt(i, cc) })
     cI.castShadow = false; cI.receiveShadow = true; scene.add(cI)
     const kI = new THREE.InstancedMesh(capGeo, capMat, caps.length)
     caps.forEach(([x, y, z, w, r], i) => { q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r); m4.compose(p.set(x, y, z), q, s.set(w, 1, w)); kI.setMatrixAt(i, m4) })
     kI.receiveShadow = true; scene.add(kI)
+    const cnI = new THREE.InstancedMesh(cornGeo, cornMat, corn.length)
+    corn.forEach(([x, y, z, nx, nz, st], i) => {
+      const along = st * (0.6 + rnd() * 0.25), up = 0.16 + rnd() * 0.12, out = 0.28
+      const sx = nx ? out : along, sz = nz ? out : along
+      m4.compose(p.set(x, y - up * 0.3, z), q.identity(), s.set(sx, up, sz)); cnI.setMatrixAt(i, m4)
+    })
+    cnI.receiveShadow = true; cnI.castShadow = false; scene.add(cnI)
     const iI = new THREE.InstancedMesh(iceGeo, iceMat, ices.length)
     ices.forEach(([x, y, z, l], i) => { m4.compose(p.set(x, y, z), q.identity(), s.set(1 + l * 0.6, l, 1 + l * 0.6)); iI.setMatrixAt(i, m4) })
     scene.add(iI)
-    out.counts = { cols: cols.length, caps: caps.length, ices: ices.length }
+    out.counts = { cols: cols.length, caps: caps.length, ices: ices.length, corn: corn.length }
   }
 
   // ---- ランタン（琥珀の光で、次に登る所を示す） ----
@@ -111,7 +149,7 @@ export function buildNight(scene, W, M, opt) {
     const iron = new THREE.MeshStandardMaterial({ color: 0x2a2624, roughness: 0.5, metalness: 0.7 })
     const glass = new THREE.MeshStandardMaterial({ color: 0xffc070, emissive: PAL.lamp, emissiveIntensity: 2.4, roughness: 0.3 })
     const glowM = new THREE.SpriteMaterial({ map: glowTex, color: 0xffc27a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })
-    const pts = [...(W.course.lamps || []), ...W.flags.map(f => ({ x: f.x + 0.7, y: f.y, z: f.z - 0.2 }))]
+    const pts = [...(W.course.lamps || []), ...W.flags.map(f => ({ x: f.x - 1.6, y: f.y, z: f.z + 0.9 }))]
     for (const L of pts) {
       const g = new THREE.Group(); g.position.set(L.x, L.y, L.z)
       const pole = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.9, 0.1), post); pole.position.y = 0.95; pole.castShadow = true; g.add(pole)
@@ -200,27 +238,12 @@ export function buildNight(scene, W, M, opt) {
     out.bigBall = big
   }
 
-  // ---- 遠くの玄武岩の島と凍った海 ----
+  // 遠くの島と凍った海は描いた遠景にまかせる。真下だけ暗い海の面（霧に溶ける）
   {
-    const mR = new THREE.MeshStandardMaterial({ color: 0x2e3040, roughness: 1, flatShading: true })
-    const mS = new THREE.MeshStandardMaterial({ color: 0xb8c0e8, roughness: 1, flatShading: true })
-    const g = new THREE.CylinderGeometry(1, 1.15, 1, 6, 1)
-    for (let i = 0; i < 70; i++) {
-      const a = rnd() * Math.PI * 2, R = 120 + rnd() * 320
-      const x = Math.cos(a) * R, z = 100 + Math.sin(a) * R
-      if (Math.abs(x - 70) < 45 && z > 20 && z < 270) continue // 巨大な雪玉の斜面を空ける
-      const n = 3 + Math.floor(rnd() * 6), baseH = 20 + rnd() * 90, wid = 6 + rnd() * 16
-      for (let j = 0; j < n; j++) {
-        const h = baseH * (0.6 + rnd() * 0.5), ox = (rnd() - 0.5) * wid * 1.6, oz = (rnd() - 0.5) * wid * 1.6
-        const col = new THREE.Mesh(g, mR); col.position.set(x + ox, -30 + h / 2, z + oz); col.scale.set(wid * 0.35, h, wid * 0.35); scene.add(col)
-        const cap = new THREE.Mesh(g, mS); cap.position.set(x + ox, -30 + h + 0.6, z + oz); cap.scale.set(wid * 0.36, 1.4, wid * 0.36); scene.add(cap)
-      }
-    }
-    const sea = new THREE.Mesh(new THREE.PlaneGeometry(2600, 2600, 1, 1), new THREE.MeshStandardMaterial({ color: 0x3c4a7a, roughness: 0.35, metalness: 0.2 }))
-    sea.rotation.x = -Math.PI / 2; sea.position.y = -30; scene.add(sea)
-    // 浮氷
-    const fl = new THREE.MeshStandardMaterial({ color: 0xc9d2f2, roughness: 0.6, flatShading: true })
-    for (let i = 0; i < 120; i++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 5 + Math.floor(rnd() * 3)), fl); const a = rnd() * Math.PI * 2, R = 60 + rnd() * 260; m.position.set(Math.cos(a) * R, -29.6, 100 + Math.sin(a) * R); m.scale.set(4 + rnd() * 12, 0.8, 3 + rnd() * 10); m.rotation.y = rnd() * 6; scene.add(m) }
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshStandardMaterial({ color: 0x2a3360, roughness: 0.3, metalness: 0.2 }))
+    sea.rotation.x = -Math.PI / 2; sea.position.set(0, -30, 120); scene.add(sea)
+    const fl = new THREE.MeshStandardMaterial({ color: 0xb9c2ea, roughness: 0.6, flatShading: true })
+    for (let i = 0; i < 60; i++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 5 + Math.floor(rnd() * 3)), fl); const a = rnd() * Math.PI * 2, R = 40 + rnd() * 160; m.position.set(Math.cos(a) * R, -29.6, 120 + Math.sin(a) * R); m.scale.set(4 + rnd() * 10, 0.8, 3 + rnd() * 8); m.rotation.y = rnd() * 6; scene.add(m) }
   }
   return out
 }
